@@ -43,6 +43,9 @@ pub mod error;
 use error::*;
 use std::collections::HashMap;
 
+use wasm_bindgen::prelude::*;
+use serde_wasm_bindgen;
+
 const EPSILON: f64 = 0.000001f64;
 
 trait Truthy {
@@ -967,5 +970,18 @@ mod tests {
         let res = evaluator.eval("false ? 0|error : 42");
         assert!(res.is_ok());
         assert_eq!(res.unwrap(), value!(42.0));
+    }
+}
+
+#[wasm_bindgen]
+pub fn evaluate(expression: String, context: JsValue) -> Result<JsValue, JsValue> {
+    let context: serde_json::Value = serde_wasm_bindgen::from_value(context)
+        .map_err(|e| JsValue::from_str(&format!("Failed to parse context: {}", e)))?;
+
+    let evaluator = Evaluator::new();
+    
+    match evaluator.eval_in_context(&expression, &context) {
+        Ok(value) => Ok(serde_wasm_bindgen::to_value(&value).unwrap()),
+        Err(e) => Err(JsValue::from_str(&format!("Evaluation error: {}", e))),
     }
 }
