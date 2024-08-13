@@ -974,14 +974,18 @@ mod tests {
 }
 
 #[wasm_bindgen]
-pub fn evaluate(expression: String, context: JsValue) -> Result<JsValue, JsValue> {
-    let context: serde_json::Value = serde_wasm_bindgen::from_value(context)
-        .map_err(|e| JsValue::from_str(&format!("Failed to parse context: {}", e)))?;
+pub fn evaluate(expression: &str, context: JsValue) -> String {
+    let context: serde_json::Value = match serde_wasm_bindgen::from_value(context) {
+        Ok(value) => value,
+        Err(e) => return format!("Failed to parse context: {}", e),
+    };
 
     let evaluator = Evaluator::new();
-    
     match evaluator.eval_in_context(&expression, &context) {
-        Ok(value) => Ok(serde_wasm_bindgen::to_value(&value).unwrap()),
-        Err(e) => Err(JsValue::from_str(&format!("Evaluation error: {}", e))),
+        Ok(value) => match serde_wasm_bindgen::to_value(&value) {
+            Ok(js_value) => js_value.as_string().unwrap_or_else(|| "Conversion to string failed".to_string()),
+            Err(e) => format!("Failed to convert result to JsValue: {}", e),
+        },
+        Err(e) => format!("Evaluation error: {}", e),
     }
 }
